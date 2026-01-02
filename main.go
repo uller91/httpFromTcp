@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"log"
 	"io"
+	"log"
 	"strings"
+	"net"
 )
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
@@ -14,7 +14,7 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 	go func() {
 		defer close(ch)
 		defer f.Close()
-		for ;; {
+		for {
 			buffer := make([]byte, 8)
 			read, err := f.Read(buffer)
 			if err == io.EOF {
@@ -37,33 +37,36 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 }
 
 func main() {
-	file, err := os.Open("messages.txt")
+	/*
+		file, err := os.Open("messages.txt")
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
+
+	const addressString = ":42069"
+
+	l, err := net.Listen("tcp", addressString)
 	if err != nil {
 		log.Fatal(err)
 	}
-	
-	lines := getLinesChannel(file)
-	for line := range lines {
-		fmt.Printf("read: %s\n", line)
+	defer l.Close()
+
+	for {
+		// Wait for a connection.
+		conn, err := l.Accept()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("TCP connection has been accepted!")
+
+		lines := getLinesChannel(conn)
+		for line := range lines {
+			fmt.Println(line)
+		}
+
+		fmt.Println("TCP connection has been closed!")
 	}
-	/*
-	line := ""
-	for ;; {
-		buffer := make([]byte, 8)
-		read, err := file.Read(buffer)
-		if err == io.EOF {
-			fmt.Printf("read: %s\n", line)
-			os.Exit(0)
-		}
-		part := string(buffer[:read])
-		if strings.Contains(part, "\n") {
-			parts := strings.Split(part, "\n")
-			line += parts[0]
-			fmt.Printf("read: %s\n", line)
-			line = parts[1]
-		} else {
-			line += part
-		}
-	} */
+
 
 }
