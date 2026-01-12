@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strings"
 	"net"
+	"strings"
 )
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
@@ -67,6 +67,5 @@ func main() {
 
 		fmt.Println("TCP connection has been closed!")
 	}
-
 
 }
