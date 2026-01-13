@@ -1,6 +1,7 @@
 package request
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -8,7 +9,8 @@ import (
 )
 
 type Request struct {
-	RequestLine RequestLine
+	RequestLine  RequestLine
+	RequestState RequestState
 }
 
 type RequestLine struct {
@@ -17,14 +19,33 @@ type RequestLine struct {
 	Method        string
 }
 
-func parseRequestLine(line string) (RequestLine, error) {
+const crlf = "\r\n"
+
+type RequestState int
+
+const (
+	Initialized RequestState = iota
+	Done
+)
+
+func parseRequestLine(bytes []byte) (RequestLine, int, error) {
+	if !bytes.Contains(data, []byte(crlf)) {
+		return RequestLine{}, 0, nil
+	}
+
+	idx := bytes.Index(data, []byte(crlf))
+	line := string(data[:idx])
+	if line == "" {
+		return nil, 0, errors.New("request line is empty")
+	}
+
 	parts := strings.Split(line, " ")
 	if len(parts) != 3 {
-		return RequestLine{}, errors.New("malformed request line: not enough parts")
+		return RequestLine{}, 0, errors.New("malformed request line: not enough parts")
 	}
 
 	if parts[0] != strings.ToUpper(parts[0]) {
-		return RequestLine{}, errors.New("improper method in the request line")
+		return RequestLine{}, 0, errors.New("improper method in the request line")
 	}
 
 	if !strings.Contains(parts[2], "HTTP") {
@@ -44,23 +65,25 @@ func parseRequestLine(line string) (RequestLine, error) {
 		RequestTarget: parts[1],
 		Method:        parts[0],
 	}
-	return reqLine, nil
+	return reqLine, idx, nil
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	bts, err := io.ReadAll(reader)
+	bytes, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
 
-	reqStr := string(bts)
-	reqStrs := strings.Split(reqStr, "\r\n")
-	fmt.Println(reqStrs[0])
-	if reqStrs[0] == "" {
-		return nil, errors.New("requesti line is empty")
-	}
+	/*
+		reqStr := string(bytes)
+		reqStrs := strings.Split(reqStr, "\r\n")
+		fmt.Println(reqStrs[0])
+		if reqStrs[0] == "" {
+			return nil, errors.New("requesti line is empty")
+		}
+	*/
 
-	reqLine, err := parseRequestLine(reqStrs[0])
+	reqLine, read, err := parseRequestLine(bytes)
 	if err != nil {
 		return nil, err
 	}
