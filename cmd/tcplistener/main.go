@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"strings"
+	"github.com/uller91/httpFromTcp/internal/request"
 )
 
+/*
 func getLinesChannel(f io.ReadCloser) <-chan string {
 	ch := make(chan string)
 	line := ""
@@ -35,6 +35,7 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 
 	return ch
 }
+*/
 
 func main() {
 	/*
@@ -60,10 +61,21 @@ func main() {
 		}
 		fmt.Println("TCP connection has been accepted!")
 
+		/*
 		lines := getLinesChannel(conn)
 		for line := range lines {
 			fmt.Println(line)
 		}
+		*/
+		request, err := request.RequestFromReader(conn)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %s\n", request.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", request.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", request.RequestLine.HttpVersion)
 
 		fmt.Println("TCP connection has been closed!")
 	}
