@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/uller91/httpFromTcp/internal/request"
 	"log"
 	"net"
-	"github.com/uller91/httpFromTcp/internal/request"
 )
 
 /*
@@ -62,10 +62,10 @@ func main() {
 		fmt.Println("TCP connection has been accepted!")
 
 		/*
-		lines := getLinesChannel(conn)
-		for line := range lines {
-			fmt.Println(line)
-		}
+			lines := getLinesChannel(conn)
+			for line := range lines {
+				fmt.Println(line)
+			}
 		*/
 		request, err := request.RequestFromReader(conn)
 		if err != nil {

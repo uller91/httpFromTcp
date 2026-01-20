@@ -2,8 +2,8 @@ package headers
 
 import (
 	"bytes"
-	"strings"
 	"errors"
+	"strings"
 )
 
 const crlf = "\r\n"
@@ -38,18 +38,22 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, errors.New("invalid character in the key")
 	}
 	/*
-	if strings.Contains(parts[0], "@") {
-		return 0, false, errors.New("invalid character in the key")
-	} */
-	
+		if strings.Contains(parts[0], "@") {
+			return 0, false, errors.New("invalid character in the key")
+		} */
+
 	h.Set(key, parts[1])
 
-	return idx+2, false, nil //need to remove \r\n as well
+	return idx + 2, false, nil //need to remove \r\n as well
 }
 
 func (h Headers) Set(k, v string) {
 	key := strings.ToLower(k)
 	value := strings.TrimSpace(v)
+	oldValue, exist := h[key]
+	if exist {
+		value = oldValue + ", " + value
+	}
 	h[key] = value
 }
 
@@ -76,6 +80,6 @@ func isCorrect(c string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
