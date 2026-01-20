@@ -28,15 +28,54 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	lineClean := strings.TrimSpace(line)
 
 	parts := strings.SplitN(lineClean, ":", 2)
+	key := strings.TrimSpace(parts[0])
 
-	if parts[0] != strings.TrimSpace(parts[0]) {
+	if parts[0] != key {
 		return 0, false, errors.New("malformed header string")
 	}
-	
-	key := strings.TrimSpace(parts[0])
-	value := strings.TrimSpace(parts[1])
 
-	h[key] = value
+	if !validKey(key) {
+		return 0, false, errors.New("invalid character in the key")
+	}
+	/*
+	if strings.Contains(parts[0], "@") {
+		return 0, false, errors.New("invalid character in the key")
+	} */
+	
+	h.Set(key, parts[1])
 
 	return idx+2, false, nil //need to remove \r\n as well
+}
+
+func (h Headers) Set(k, v string) {
+	key := strings.ToLower(k)
+	value := strings.TrimSpace(v)
+	h[key] = value
+}
+
+func validKey(key string) bool {
+	for _, c := range key {
+		if !isCorrect(string(c)) {
+			return false
+		}
+	}
+	return true
+}
+
+var specialChars = []string{"!", "#", "$", "%", "&", "'", "*", "+", "-", ".", "^", "_", "`", "|", "~"}
+
+func isCorrect(c string) bool {
+	if c >= "A" && c <= "Z" ||
+		c >= "a" && c <= "z" ||
+		c >= "0" && c <= "9" {
+		return true
+	}
+
+	for _, sp := range specialChars {
+		if sp == c {
+			return true
+		}
+	}
+	
+	return false
 }
