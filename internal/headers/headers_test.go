@@ -48,11 +48,12 @@ func TestHeadersParse(t *testing.T) {
 
 	// Test: Valid done
 	headers = NewHeaders()
-	data = []byte("\r\n")
+	data = []byte("\r\n body")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, 0, n)
+	assert.Equal(t, 2, n)
+	assert.Equal(t, 0, len(headers))
 	assert.True(t, done)
 
 	// Test: Invalid characters in the header

@@ -15,13 +15,15 @@ func NewHeaders() Headers {
 }
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
+	/*
 	if !bytes.Contains(data, []byte(crlf)) {
 		return 0, false, nil
-	}
+	} */
 
 	idx := bytes.Index(data, []byte(crlf))
 	if idx == 0 {
-		return 0, true, nil
+		//empty line (only crlf)
+		return 2, true, nil
 	}
 	line := string(data[:idx])
 

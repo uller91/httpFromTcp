@@ -3,6 +3,7 @@ package request
 import (
 	"bytes"
 	"errors"
+	"github.com/uller91/httpFromTcp/internal/headers"
 	"io"
 	"strings"
 )
@@ -10,6 +11,7 @@ import (
 type Request struct {
 	RequestLine  RequestLine
 	RequestState RequestState
+	Headers      headers.Headers
 }
 
 type RequestLine struct {
@@ -25,24 +27,41 @@ const bufferSize = 8
 type RequestState string
 
 const (
-	Initialized RequestState = "initialized"
-	Done        RequestState = "done"
+	RequestStateInitialized    RequestState = "initialized"
+	RequestStateDone           RequestState = "done"
+	RequestStateParsingHeaders RequestState = "requestStateParsingHeaders"
 )
 
 func (r *Request) parse(data []byte) (int, error) {
 	switch r.RequestState {
-	case Initialized:
+	case RequestStateInitialized:
 		reqLine, read, err := parseRequestLine(data)
 		if err != nil {
 			return 0, err
 		}
 		if read == 0 {
-			return 0, nil
+			return read, nil
 		}
 		r.RequestLine = reqLine
-		r.RequestState = Done
+		r.RequestState = RequestStateParsingHeaders
 		return read, nil
-	case Done:
+	case RequestStateParsingHeaders:
+		readSoFar := 0
+
+		for bytes.Contains(data[readSoFar:], []byte(crlf)) {
+			read, done, err := r.Headers.Parse(data[readSoFar:])
+			if err != nil {
+				return 0, err
+			}
+			readSoFar += read
+			if done {
+				r.RequestState = RequestStateDone
+				return readSoFar, nil
+			}
+		}
+		
+		return readSoFar, nil
+	case RequestStateDone:
 		return 0, errors.New("error: trying to read data in a done state")
 	default:
 		return 0, errors.New("error: unknown state")
@@ -86,15 +105,16 @@ func parseRequestLine(data []byte) (RequestLine, int, error) {
 		RequestTarget: parts[1],
 		Method:        parts[0],
 	}
-	return reqLine, idx, nil
+	return reqLine, idx + 2, nil
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	buf := make([]byte, bufferSize, bufferSize)
 	readToIndex := 0
-	req := Request{RequestState: Initialized}
+	Headers := headers.NewHeaders()
+	req := Request{RequestState: RequestStateInitialized, Headers: Headers}
 
-	for req.RequestState != Done {
+	for req.RequestState != RequestStateDone {
 		if readToIndex == cap(buf) {
 			buf_new := make([]byte, cap(buf)*2, cap(buf)*2)
 			_ = copy(buf_new, buf)
@@ -103,7 +123,9 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 		read, err := reader.Read(buf[readToIndex:])
 		if err == io.EOF {
-			req.RequestState = Done
+			if req.RequestState != RequestStateDone {
+				return nil, errors.New("incomplete or malformed request")
+			}
 			break
 		}
 		if err != nil {
