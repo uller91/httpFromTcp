@@ -1,6 +1,9 @@
 package main
 
 import (
+	"io"
+	"github.com/uller91/httpFromTcp/internal/request"
+	"github.com/uller91/httpFromTcp/internal/response"
 	"github.com/uller91/httpFromTcp/internal/server"
 	"log"
 	"os"
@@ -11,7 +14,7 @@ import (
 const port = 42069
 
 func main() {
-	server, err := server.Serve(port)
+	server, err := server.Serve(port, MainHandler)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
@@ -22,4 +25,16 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 	log.Println("Server gracefully stopped")
+}
+
+func MainHandler(w io.Writer, req *request.Request) *server.HandlerError {
+	switch req.RequestLine.RequestTarget {
+	case "/yourproblem":
+		return &server.HandlerError{StatusCode: response.BadRequest, ErrorMessage: "Your problem is not my problem\n"}
+	case "/myproblem":
+		return &server.HandlerError{StatusCode: response.InternalServerError, ErrorMessage: "Woopsie, my bad\n"}
+	default:
+		w.Write([]byte("All good, frfr\n"))
+		return nil
+	}
 }

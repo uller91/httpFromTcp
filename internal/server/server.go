@@ -1,28 +1,63 @@
 package server
 
 import (
-	"sync/atomic"
+	"io"
+	"bytes"
 	"fmt"
+	"github.com/uller91/httpFromTcp/internal/request"
+	"github.com/uller91/httpFromTcp/internal/response"
 	"net"
-	"strconv"
+	"sync/atomic"
 )
 
 type Server struct {
 	Listener net.Listener
-	Running   *atomic.Bool
+	Handler  Handler
+	Running  *atomic.Bool
 }
 
-func Serve(port int) (*Server, error) {
-	strPort := strconv.Itoa(port)
-	adr := ":" + strPort
-	l, err := net.Listen("tcp", adr)
+type Handler func(w io.Writer, req *request.Request) *HandlerError
+
+type HandlerError struct {
+	StatusCode   response.StatusCode
+	ErrorMessage string
+}
+
+func HandleError(w io.Writer, handlErr *HandlerError) {
+	err := response.WriteStatusLine(w, handlErr.StatusCode)
+	if err != nil {
+		fmt.Errorf("Error sending status line: %v", err)
+		return
+	}
+
+	headers := response.GetDefaultHeaders(len([]byte(handlErr.ErrorMessage)))
+
+	err = response.WriteHeaders(w, headers)
+	if err != nil {
+		fmt.Errorf("Error sending headers: %v", err)
+		return
+	}
+
+	//fmt.Println(string([]byte(handlErr.ErrorMessage)))
+
+	_, err = w.Write([]byte(handlErr.ErrorMessage))
+	if err != nil {
+		fmt.Errorf("Error sending the body: %v", err)
+		return 
+	}
+
+	return
+}
+
+func Serve(port int, handler Handler) (*Server, error) {
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, fmt.Errorf("Error when creating TCP listener: %v", err)
 	}
 
 	var running atomic.Bool
 	running.Store(true)
-	s := Server{Listener: l, Running: &running}
+	s := Server{Listener: l, Handler: handler, Running: &running}
 	go s.listen()
 
 	return &s, nil
@@ -31,7 +66,7 @@ func Serve(port int) (*Server, error) {
 func (s *Server) Close() error {
 	err := s.Listener.Close()
 	if err != nil {
-		fmt.Errorf("Error when closing TCP listener: %v", err)
+		return fmt.Errorf("Error when closing TCP listener: %v", err)
 	}
 	s.Running.Store(false)
 
@@ -46,6 +81,7 @@ func (s *Server) listen() {
 			running := s.Running.Load()
 			if running {
 				fmt.Errorf("Error creating connectionl: %v", err)
+				continue
 			} else {
 				return
 			}
@@ -57,19 +93,45 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	response := "HTTP/1.1 200 OK\r\n" +
-		"Content-Type: text/plain\r\n" +
-		"Content-Length: 13\r\n" +
-		"\r\n" +
-		"Hello World!\n"
+	defer conn.Close()
 
-	_, err := conn.Write([]byte(response))
+	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		fmt.Errorf("Error sending the response: %v", err)
+		fmt.Errorf("Error processing the request: %v", err)
+		return
 	}
 
-	err = conn.Close()
-	if err != nil {
-		fmt.Errorf("Error when closing TCP connection: %v", err)
+	b := bytes.NewBuffer([]byte{})
+
+	handlErr := s.Handler(b, req)
+	if handlErr != nil {
+		HandleError(conn, handlErr)
+		return
 	}
+
+	body := b.Bytes()
+	//fmt.Println(string(body))
+	
+	headers := response.GetDefaultHeaders(len(body))
+
+	err = response.WriteStatusLine(conn, response.OK)
+	if err != nil {
+		fmt.Errorf("Error sending status line: %v", err)
+		return
+	}
+
+	err = response.WriteHeaders(conn, headers)
+	if err != nil {
+		fmt.Errorf("Error sending headers: %v", err)
+		return
+	}
+
+
+	_, err = conn.Write(body)
+	if err != nil {
+		fmt.Errorf("Error sending the body: %v", err)
+		return
+	}
+
+	return
 }
