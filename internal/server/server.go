@@ -1,11 +1,11 @@
 package server
 
 import (
-	"io"
-	"bytes"
+	//"bytes"
 	"fmt"
 	"github.com/uller91/httpFromTcp/internal/request"
-	"github.com/uller91/httpFromTcp/internal/response"
+	//"github.com/uller91/httpFromTcp/internal/response"
+	"io"
 	"net"
 	"sync/atomic"
 )
@@ -16,13 +16,16 @@ type Server struct {
 	Running  *atomic.Bool
 }
 
-type Handler func(w io.Writer, req *request.Request) *HandlerError
+type Handler func(w io.Writer, req *request.Request) //*HandlerError
 
+/*
 type HandlerError struct {
 	StatusCode   response.StatusCode
 	ErrorMessage string
 }
+*/
 
+/*
 func HandleError(w io.Writer, handlErr *HandlerError) {
 	err := response.WriteStatusLine(w, handlErr.StatusCode)
 	if err != nil {
@@ -43,11 +46,12 @@ func HandleError(w io.Writer, handlErr *HandlerError) {
 	_, err = w.Write([]byte(handlErr.ErrorMessage))
 	if err != nil {
 		fmt.Errorf("Error sending the body: %v", err)
-		return 
+		return
 	}
 
 	return
 }
+*/
 
 func Serve(port int, handler Handler) (*Server, error) {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -101,37 +105,34 @@ func (s *Server) handle(conn net.Conn) {
 		return
 	}
 
-	b := bytes.NewBuffer([]byte{})
+	//b := bytes.NewBuffer([]byte{})
 
-	handlErr := s.Handler(b, req)
-	if handlErr != nil {
-		HandleError(conn, handlErr)
-		return
-	}
+	s.Handler(conn, req)
 
-	body := b.Bytes()
-	//fmt.Println(string(body))
-	
-	headers := response.GetDefaultHeaders(len(body))
+	/*
+		body := b.Bytes()
+		//fmt.Println(string(body))
 
-	err = response.WriteStatusLine(conn, response.OK)
-	if err != nil {
-		fmt.Errorf("Error sending status line: %v", err)
-		return
-	}
+		//headers := response.GetDefaultHeaders(len(body))
 
-	err = response.WriteHeaders(conn, headers)
-	if err != nil {
-		fmt.Errorf("Error sending headers: %v", err)
-		return
-	}
+		err = response.WriteStatusLine(conn, response.OK)
+		if err != nil {
+			fmt.Errorf("Error sending status line: %v", err)
+			return
+		}
 
+		err = response.WriteHeaders(conn, headers)
+		if err != nil {
+			fmt.Errorf("Error sending headers: %v", err)
+			return
+		}
 
-	_, err = conn.Write(body)
-	if err != nil {
-		fmt.Errorf("Error sending the body: %v", err)
-		return
-	}
+		_, err = conn.Write(body)
+		if err != nil {
+			fmt.Errorf("Error sending the body: %v", err)
+			return
+		}
+	*/
 
 	return
 }
