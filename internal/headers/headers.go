@@ -68,6 +68,16 @@ func (h Headers) Set(k, v string) {
 	h[key] = value
 }
 
+func (h Headers) Change(k, v string) {
+	key := strings.ToLower(k)
+	h[key] = v
+}
+
+func (h Headers) Delete(k string) {
+	key := strings.ToLower(k)
+	delete(h, key)
+}
+
 func validKey(key string) bool {
 	for _, c := range key {
 		if !isCorrect(string(c)) {

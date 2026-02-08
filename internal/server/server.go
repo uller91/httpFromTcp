@@ -4,8 +4,8 @@ import (
 	//"bytes"
 	"fmt"
 	"github.com/uller91/httpFromTcp/internal/request"
-	//"github.com/uller91/httpFromTcp/internal/response"
-	"io"
+	"github.com/uller91/httpFromTcp/internal/response"
+	//"io"
 	"net"
 	"sync/atomic"
 )
@@ -16,7 +16,7 @@ type Server struct {
 	Running  *atomic.Bool
 }
 
-type Handler func(w io.Writer, req *request.Request) //*HandlerError
+type Handler func(w response.Writer, req *request.Request) //*HandlerError
 
 /*
 type HandlerError struct {
@@ -107,7 +107,12 @@ func (s *Server) handle(conn net.Conn) {
 
 	//b := bytes.NewBuffer([]byte{})
 
-	s.Handler(conn, req)
+	resW := response.Writer{
+		Writer:      conn,
+		WriterState: response.Initialized,
+	}
+
+	s.Handler(resW, req)
 
 	/*
 		body := b.Bytes()
