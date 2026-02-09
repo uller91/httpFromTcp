@@ -31,6 +31,40 @@ func main() {
 	log.Println("Server gracefully stopped")
 }
 
+func VideoHandler(w response.Writer, req *request.Request) {
+	fmt.Println("Serving the video from assets...")
+
+	statusCode := response.OK
+
+	videoBody, err := os.ReadFile("assets/vim.mp4")
+	if err != nil {
+		fmt.Errorf("Error reading video file: %v", err)
+		return
+	}
+
+	headers := response.GetDefaultHeaders(len(videoBody))
+	headers.Change("Content-Type", "video/mp4")
+
+	err = w.WriteStatusLine(statusCode)
+	if err != nil {
+		fmt.Errorf("Error sending status line: %v", err)
+		return
+	}
+
+	err = w.WriteHeaders(headers)
+	if err != nil {
+		fmt.Errorf("Error sending headers: %v", err)
+		return
+	}
+	_, err = w.WriteBody(videoBody)
+	if err != nil {
+		fmt.Errorf("Error sending the body: %v", err)
+		return
+	}
+
+	return
+}
+
 func ProxyHandler(w response.Writer, req *request.Request) {
 	target := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin/")
 	targetUrl := "https://httpbin.org/" + target
@@ -220,6 +254,11 @@ func handler500(w response.Writer, req *request.Request) {
 func Handler(w response.Writer, req *request.Request) {
 	if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/") {
 		ProxyHandler(w, req)
+		return
+	}
+
+	if strings.HasPrefix(req.RequestLine.RequestTarget, "/video") {
+		VideoHandler(w, req)
 		return
 	}
 
