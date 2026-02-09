@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"github.com/uller91/httpFromTcp/internal/request"
 	"github.com/uller91/httpFromTcp/internal/response"
@@ -47,6 +48,8 @@ func ProxyHandler(w response.Writer, req *request.Request) {
 
 	headers := response.GetDefaultHeaders(0)
 	headers.Change("Transfer-Encoding", "chunked")
+	headers.Set("Trailer", "X-Content-Sha256")
+	headers.Set("Trailer", "X-Content-Length")
 	headers.Delete("Content-Length")
 
 	err = w.WriteStatusLine(statusCode)
@@ -64,17 +67,21 @@ func ProxyHandler(w response.Writer, req *request.Request) {
 	const bufSize = 1024
 	buf := make([]byte, bufSize)
 
+	chunkedBodyLen := 0
+	var resBody []byte
 	for {
 		read, err := res.Body.Read(buf)
 		fmt.Printf("Read %v bytes\n", read)
 
 		if read > 0 {
+			resBody = append(resBody, buf[:read]...)
 			_, err := w.WriteChunkedBody(buf[:read])
 			if err != nil {
 				fmt.Errorf("Error writing chunked body done: %v", err)
 				break
 			}
 		}
+		chunkedBodyLen += read
 
 		if err == io.EOF {
 			break
@@ -91,6 +98,15 @@ func ProxyHandler(w response.Writer, req *request.Request) {
 		return
 	}
 
+	sha256 := sha256.Sum256(resBody)
+	trailers := response.GetDefaultTrailers(fmt.Sprintf("%x", sha256), chunkedBodyLen)
+
+	fmt.Printf("%#v\n", trailers)
+	err = w.WriteTrailers(trailers)
+	if err != nil {
+		fmt.Errorf("Error sending trailers: %v", err)
+		return
+	}
 }
 
 func handler200(w response.Writer, req *request.Request) {

@@ -26,10 +26,11 @@ type Writer struct {
 type WriterState string
 
 const (
-	Initialized    WriterState = "initialized"
-	Done           WriterState = "done"
-	WritingHeaders WriterState = "writing headers"
-	WritingBody    WriterState = "writing body"
+	Initialized     WriterState = "initialized"
+	Done            WriterState = "done"
+	WritingHeaders  WriterState = "writing headers"
+	WritingBody     WriterState = "writing body"
+	WritingTrailers WriterState = "writing trailers"
 )
 
 func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
@@ -66,13 +67,13 @@ func (w *Writer) WriteChunkedBodyDone() (int, error) {
 		return 0, errors.New("Headers hasn't been sent!")
 	}
 
-	payload := []byte(fmt.Sprintf("%x\r\n\r\n", 0))
+	payload := []byte(fmt.Sprintf("%x\r\n", 0))
 
 	n, err := w.Writer.Write(payload)
 	if err != nil {
 		return 0, err
 	}
-	w.WriterState = Done
+	w.WriterState = WritingTrailers
 
 	return n, nil
 }
@@ -144,4 +145,34 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 	w.WriterState = Done
 
 	return n, nil
+}
+
+func GetDefaultTrailers(sha string, bodyLen int) headers.Headers {
+	trailers := headers.NewHeaders()
+	trailers.Set("X-Content-Sha256", sha)
+	trailers.Set("X-Content-Length", strconv.Itoa(bodyLen))
+
+	return trailers
+}
+
+func (w *Writer) WriteTrailers(headers headers.Headers) error {
+	if w.WriterState != WritingTrailers {
+		return errors.New("Full body hasn't been sent!")
+	}
+
+	var trailersLines string
+	for key, value := range headers {
+		trailersLines += key + ": " + value + "\r\n"
+	}
+	trailersLines += "\r\n"
+
+	fmt.Println(trailersLines)
+
+	_, err := w.Writer.Write([]byte(trailersLines))
+	if err != nil {
+		return err
+	}
+	w.WriterState = Done
+
+	return nil
 }
